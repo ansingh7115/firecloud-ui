@@ -122,16 +122,24 @@
                                            related-id-prop id
                                            related-label-prop label)))}]
    (let [[related-id related-label] (library-utils/get-related-id+label (:attributes @state) library-schema property)]
-     (when (not-any? clojure.string/blank? [related-id related-label])
-       [:div {:style {:fontWeight "bold"}}
-        related-label
-        [:span {:style {:fontWeight "normal" :fontSize "small" :float "right"}} related-id]
-        [:div {:style {:fontWeight "normal"}}
-         (style/create-link {:text "Clear Selection"
+     [:div {:style {:display (when (some clojure.string/blank? [related-id related-label]) "none")}}
+      [:span {:style {:fontWeight "bold"}} related-label]
+      [:span {:style {:fontSize "small" :float "right"}} related-id]
+      [:div {}
+       (style/create-link {:text "Clear Selection"
+                           :onClick #(apply swap! state update :attributes dissoc property
+                                            (library-utils/get-related-id+label-props library-schema property))})]]
+     ;; TODO: why is this causing React to bomb when adding the node?
+     #_(when (not-any? clojure.string/blank? [related-id related-label])
+         [:div {}
+          [:span {:style {:fontWeight "bold"}} related-label]
+          [:span {:style {:fontSize "small" :float "right"}} related-id]
+          [:div {}
+           (style/create-link {:text "Clear Selection"
                              :onClick #(apply swap! state update :attributes dissoc
                                               (library-utils/get-related-id+label-props library-schema property))})]]))])
 
-(defn- render-populate-typeahead [{:keys [property value-nullsafe inputHint set-property]}]
+(defn- render-populate-typeahead [{:keys [property value-nullsafe inputHint set-property update-property]}]
   [:div {:style {:marginBottom "0.75em"}}
    [comps/AutocompleteFilter
     {:width "100%"
@@ -139,6 +147,7 @@
      :placeholder inputHint
      :initial-text value-nullsafe
      :on-filter set-property
+     :onChange update-property  ; or should this be update-property?
      :bloodhoundInfo {:url (str (config/api-url-root) "/api/library/populate/suggest/" (name property))
                       :cache false
                       :prepare (fn [query settings]

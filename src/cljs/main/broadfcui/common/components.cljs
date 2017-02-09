@@ -498,12 +498,13 @@
      {:typeaheadDisplay identity})
    :render
    (fn [{:keys [props this]}]
-     (let [{:keys [initial-text placeholder width]} props]
+     (let [{:keys [initial-text placeholder width onChange]} props]
        [:div {:style {:display "inline-flex" :width width}}
         [Typeahead {:ref "typeahead"
                     :field-attributes {:autoSave "true" :results 5 :autofocus "true"
                                        :placeholder (or placeholder "Filter") :defaultValue initial-text
                                        :style {:flex "1 0 auto" :width width :borderRadius 3 :marginBottom 0}
+                                       :onChange onChange
                                        :onKeyDown (common/create-key-handler [:enter] #(react/call :apply-filter this))}
                     :behavior {:hint false :minLength 3}
                     :remote (:bloodhoundInfo props)
