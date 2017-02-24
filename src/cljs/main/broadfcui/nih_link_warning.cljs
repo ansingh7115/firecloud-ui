@@ -19,35 +19,39 @@
      "/nih/status"
      (merge ajax-args {:on-done on-done}))))
 
+(defn- get-warning-text [username expire-time]
+  (cond
+    (> 0 (- expire-time (utils/_24-hours-from-now-ms)))
+    [:div {:style {:border "1px solid #c00" :backgroundColor "#fcc"
+                   :color "#800" :fontSize "small" :padding "6px 10px" :textAlign "center"}}
+     "Your access to TCGA Controlled Access workspaces and data will expire "
+     (duration/fuzzy-time-from-now-ms expire-time true) " and your access to TCGA Controlled Access workspaces will be revoked "
+     "within 24 hours of that time. "
+     [:br]
+     [:a {:href (profile/get-nih-link-href)} "Re-link"]
+     " your FireCloud and eRA Commons / NIH accounts (" expire-time
+     ") before then to retain access to these workspaces and data."]
+    (< expire-time (utils/_24-hours-from-now-ms))
+    [:div {:style {:border "1px solid #c00" :backgroundColor "#fcc"
+                   :color "#800" :fontSize "small" :padding "6px 10px" :textAlign "center"}}
+     "Your access to TCGA Controlled Access workspaces and data has expired as of "
+     (duration/fuzzy-time-from-now-ms expire-time true) ". Your access to TCGA Controlled Access workspaces will be revoked "
+     "within 24 hours of that time. "
+     [:br]
+     [:a {:href (profile/get-nih-link-href)} "Re-link"]
+     " your FireCloud and eRA Commons / NIH accounts (" username
+     ") to retain access to these workspaces and data."]
+    :else nil))
+
 
 (react/defc NihLinkWarning
   {:render
    (fn [{:keys [props state]}]
      (when-let [status (:status @state)]
        (let [expire-time (-> (get status "linkExpireTime") (* 1000))]
-         (when get status "isDbgapAuthorized"
-           (cond
-             (< 0 (- expire-time (utils/_24-hours-from-now-ms)))
-               [:div {:style {:border "1px solid #c00" :backgroundColor "#fcc"
-                              :color "#800" :fontSize "small" :padding "6px 10px" :textAlign "center"}}
-                "Your access to TCGA Controlled Access workspaces and data will expire "
-                (duration/fuzzy-time-from-now-ms expire-time true) " and your access to TCGA Controlled Access workspaces will be revoked "
-                "within 24 hours of that time. "
-                [:br]
-                [:a {:href (profile/get-nih-link-href)} "Re-link"]
-                " your FireCloud and eRA Commons / NIH accounts (" (get status "linkedNihUsername")
-                ") before then to retain access to these workspaces and data."]
-             (< expire-time (utils/_24-hours-from-now-ms))
-               [:div {:style {:border "1px solid #c00" :backgroundColor "#fcc"
-                              :color "#800" :fontSize "small" :padding "6px 10px" :textAlign "center"}}
-                "Your access to TCGA Controlled Access workspaces and data has expired as of "
-                (duration/fuzzy-time-from-now-ms expire-time true) ". Your access to TCGA Controlled Access workspaces will be revoked "
-                "within 24 hours of that time. "
-                [:br]
-                [:a {:href (profile/get-nih-link-href)} "Re-link"]
-                " your FireCloud and eRA Commons / NIH accounts (" (get status "linkedNihUsername")
-                ") to retain access to these workspaces and data."]
-             :else nil)))))
+         (utils/cljslog expire-time)
+         (when (get status "isDbgapAuthorized")
+           (get-warning-text (get status "linkedNihUsername") expire-time)))))
    :component-did-mount
    (fn [{:keys [props state]}]
      (get-profile
