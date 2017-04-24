@@ -19,6 +19,7 @@
       :protected-option :not-loaded})
    :render
    (fn [{:keys [props state refs this]}]
+     (utils/cljslog @state)
      [comps/OKCancelForm
       {:header "Create New Workspace"
        :ok-button {:text "Create Workspace" :onClick #(react/call :create-workspace this)}
@@ -40,25 +41,27 @@
           (style/create-textfield-hint "Only letters, numbers, underscores, and dashes allowed")
           (style/create-form-label "Description (optional)")
           (style/create-text-area {:style {:width "100%"} :rows 5 :ref "wsDescription"})
-          [:div {:style {:marginBottom "1em"}}
-           [comps/Checkbox
-            {:ref "protected-check"
-             :label "Workspace intended to contain NIH protected data"
-             :disabled? (not= (:protected-option @state) :enabled)
-             :disabled-text (case (:protected-option @state)
-                              :not-loaded "Account status has not finished loading."
-                              :not-available "This option is not available for your account."
-                              nil)}]]
+          (style/create-form-label "Authorization Domain")
+          (common/render-info-box
+            {:text [:div {} [:strong {} "Note:"] [:br] "Once this workspace is associated with an Authorization Domain,
+            a user can access the data only if they are a member of the Domain and have been granted read or write
+            permission on the workspace. If a user with access to the workspace clones it, any Domain associations will
+            be retained by the new copy. If a user tries to share the clone with a person who is not in the Domain, the
+            data remains protected. [Read more about Authorization Domains.]"]})
+          (style/create-select
+            {:ref "authdomain"
+             :onChange #(swap! state assoc :selected-authdomain (-> % .-target .-value))}
+            (:groups @state))
           [comps/ErrorViewer {:error (:server-error @state)}]
           (style/create-validation-error-message (:validation-errors @state))])}])
    :component-did-mount
    (fn [{:keys [state]}]
-     (utils/ajax-orch
-      "/nih/status"
-      {:on-done (fn [{:keys [success? get-parsed-response]}]
-                  (if (and success? (get (get-parsed-response false) "isDbgapAuthorized"))
-                    (swap! state assoc :protected-option :enabled)
-                    (swap! state assoc :protected-option :not-available)))}))
+     (endpoints/call-ajax-orch
+       {:endpoint (endpoints/groups-list)
+        :headers utils/content-type=json
+        :on-done (fn [{:keys [success? get-parsed-response]}]
+                   (swap! state assoc :groups (conj (map (fn[g] (get-in g [:managedGroupRef :usersGroupName]))
+                                                   (mapv utils/keywordize-keys (get-parsed-response false))) "Anyone who is given access")))}))
    :create-workspace
    (fn [{:keys [props state refs]}]
      (swap! state dissoc :server-error :validation-errors)

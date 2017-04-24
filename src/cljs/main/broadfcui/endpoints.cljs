@@ -704,6 +704,11 @@
     :canned-response {:status 200 :delay-ms (rand-int 2000)}}))
 
 
+(defn groups-list []
+  {:path "/groups"
+   :method :get})
+
+
 (defn get-billing-projects
   ([on-done] (get-billing-projects false on-done))
   ([include-pending? on-done]
