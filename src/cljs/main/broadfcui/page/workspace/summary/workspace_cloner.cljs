@@ -41,7 +41,21 @@
           (style/create-form-label "Description (optional)")
           (style/create-text-area {:style {:width "100%"} :rows 5 :ref "wsDescription"
                                    :defaultValue (:description props)})
-          (if (:is-protected? props)
+          [:div {:style {:display "flex"}}
+           (style/create-form-label "Authorization Domain")
+           (common/render-info-box
+             {:text [:div {} [:strong {} "Note:"] [:br] "Once this workspace is associated with an Authorization Domain,
+             a user can access the data only if they are a member of the Domain and have been granted read or write
+             permission on the workspace. If a user with access to the workspace clones it, any Domain associations will
+             be retained by the new copy. If a user tries to share the clone with a person who is not in the Domain, the
+             data remains protected. " [:a {:href "#status" :target "_blank" :style {:textDecoration "none"}} "Read more about Authorization Domains."]]})]
+          (style/create-select
+            {:ref "authdomain"
+             :disabled (:auth-domain props)
+             :selected (:auth-domain props)
+             :onChange #(swap! state assoc :selected-authdomain (-> % .-target .-value))}
+            (:groups @state))
+          #_(if (:is-protected? props)
             [:div {} "Cloned workspace will automatically be protected because this workspace is protected."]
             [comps/Checkbox
              {:ref "protected-check"
@@ -56,12 +70,12 @@
                               :expect {409 "A workspace with this name already exists in this project"}}]])}])
    :component-did-mount
    (fn [{:keys [state]}]
-     (utils/ajax-orch
-       "/nih/status"
-       {:on-done (fn [{:keys [success? get-parsed-response]}]
-                     (if (and success? (get (get-parsed-response false) "isDbgapAuthorized"))
-                       (swap! state assoc :protected-option :enabled)
-                       (swap! state assoc :protected-option :not-available)))}))
+     (endpoints/call-ajax-orch
+       {:endpoint (endpoints/groups-list)
+        :headers utils/content-type=json
+        :on-done (fn [{:keys [success? get-parsed-response]}]
+                   (swap! state assoc :groups (conj (map (fn[g] (get-in g [:managedGroupRef :usersGroupName]))
+                                                         (mapv utils/keywordize-keys (get-parsed-response false))) "Anyone who is given permission")))}))
    :do-clone
    (fn [{:keys [props refs state]}]
      (if-let [fails (input/validate refs "name")]
@@ -72,11 +86,11 @@
              attributes (if (or (:description props) (not (clojure.string/blank? desc)))
                           {:description desc}
                           {})
-             protected? (or (:is-protected? props) (react/call :checked? (@refs "protected-check")))]
+             auth-domain (if (> (int (:selected-authdomain @state)) 0) {:authorizationDomain {:usersGroupName (nth (:groups @state) (int (:selected-authdomain @state)))}} nil)]
          (swap! state assoc :working? true :validation-error nil :error nil)
          (endpoints/call-ajax-orch
            {:endpoint (endpoints/clone-workspace (:workspace-id props))
-            :payload {:namespace project :name name :attributes attributes :isProtected protected?}
+            :payload (conj {:namespace project :name name :attributes attributes} auth-domain)
             :headers utils/content-type=json
             :on-done (fn [{:keys [success? get-parsed-response]}]
                        (swap! state dissoc :working?)

@@ -19,7 +19,6 @@
       :protected-option :not-loaded})
    :render
    (fn [{:keys [props state refs this]}]
-     (utils/cljslog @state)
      [comps/OKCancelForm
       {:header "Create New Workspace"
        :ok-button {:text "Create Workspace" :onClick #(react/call :create-workspace this)}
@@ -41,13 +40,14 @@
           (style/create-textfield-hint "Only letters, numbers, underscores, and dashes allowed")
           (style/create-form-label "Description (optional)")
           (style/create-text-area {:style {:width "100%"} :rows 5 :ref "wsDescription"})
-          (style/create-form-label "Authorization Domain")
-          (common/render-info-box
-            {:text [:div {} [:strong {} "Note:"] [:br] "Once this workspace is associated with an Authorization Domain,
-            a user can access the data only if they are a member of the Domain and have been granted read or write
-            permission on the workspace. If a user with access to the workspace clones it, any Domain associations will
-            be retained by the new copy. If a user tries to share the clone with a person who is not in the Domain, the
-            data remains protected. [Read more about Authorization Domains.]"]})
+          [:div {:style {:display "flex"}}
+           (style/create-form-label "Authorization Domain")
+           (common/render-info-box
+             {:text [:div {} [:strong {} "Note:"] [:br] "Once this workspace is associated with an Authorization Domain,
+             a user can access the data only if they are a member of the Domain and have been granted read or write
+             permission on the workspace. If a user with access to the workspace clones it, any Domain associations will
+             be retained by the new copy. If a user tries to share the clone with a person who is not in the Domain, the
+             data remains protected. " [:a {:href "#status" :target "_blank" :style {:textDecoration "none"}} "Read more about Authorization Domains."]]})]
           (style/create-select
             {:ref "authdomain"
              :onChange #(swap! state assoc :selected-authdomain (-> % .-target .-value))}
@@ -61,7 +61,7 @@
         :headers utils/content-type=json
         :on-done (fn [{:keys [success? get-parsed-response]}]
                    (swap! state assoc :groups (conj (map (fn[g] (get-in g [:managedGroupRef :usersGroupName]))
-                                                   (mapv utils/keywordize-keys (get-parsed-response false))) "Anyone who is given access")))}))
+                                                   (mapv utils/keywordize-keys (get-parsed-response false))) "Anyone who is given permission")))}))
    :create-workspace
    (fn [{:keys [props state refs]}]
      (swap! state dissoc :server-error :validation-errors)
@@ -71,11 +71,11 @@
              name (input/get-text refs "wsName")
              desc (common/get-text refs "wsDescription")
              attributes (if (clojure.string/blank? desc) {} {:description desc})
-             protected? (react/call :checked? (@refs "protected-check"))]
+             auth-domain (if (> (int (:selected-authdomain @state)) 0) {:authorizationDomain {:usersGroupName (nth (:groups @state) (int (:selected-authdomain @state)))}} nil)]
          (swap! state assoc :creating-wf true)
          (endpoints/call-ajax-orch
           {:endpoint (endpoints/create-workspace project name)
-           :payload {:namespace project :name name :attributes attributes :isProtected protected?}
+           :payload (conj {:namespace project :name name :attributes attributes} auth-domain)
            :headers utils/content-type=json
            :on-done (fn [{:keys [success? get-parsed-response]}]
                       (swap! state dissoc :creating-wf)
