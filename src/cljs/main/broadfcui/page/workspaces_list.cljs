@@ -111,7 +111,7 @@
     :options [:open :protected]
     :render #(if (= % :open) "TCGA Open Access" "TCGA Protected Access")
     :predicate (fn [ws option] (and (= (config/tcga-namespace) (get-in ws [:workspace :namespace]))
-                                    ((if (= option :open) not identity) (get-in ws [:workspace :realm]))))}])
+                                    ((if (= option :open) not identity) (get-in ws [:workspace :authorizationDomain]))))}])
 
 (def ^:private persistence-key "workspace-table-types")
 (def ^:private VERSION 2)
@@ -153,10 +153,10 @@
                                  :href (let [x (:workspace ws)] (str (:namespace x) ":" (:name x)))
                                  :status (:status ws)
                                  :disabled? disabled?
-                                 :hover-text (when disabled? (if (get-in ws [:workspace :isProtected])
+                                 :hover-text (when disabled? (if (= (get-in ws [:workspace :authorizationDomain :usersGroupName]) "dbGapAuthorizedUsers")
                                                                dbGap-disabled-text
                                                                non-dbGap-disabled-text))
-                                 :restricted? (get-in ws [:workspace :realm])}))]
+                                 :restricted? (some? (get-in ws [:workspace :authorizationDomain :usersGroupName]))}))]
             ;; All of this margining is terrible, but since this table
             ;; will be redesigned soon I'm leaving it as-is.
             [{:id "Status" :header [:span {:style {:marginLeft 7}} "Status"]

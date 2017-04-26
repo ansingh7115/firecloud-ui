@@ -30,13 +30,13 @@
                   {:header "Created By" :starting-width 200}
                   (table/date-column {})
                   {:header "Access Level" :starting-width 106}
-                  {:header "Protected" :starting-width 86
-                   :content-renderer #(if % "Yes" "No")}]
+                  {:header "Authorization Domain" :starting-width 150
+                   :content-renderer #(if % % "None")}]
         :toolbar (default-toolbar-layout
                   (let [num (:num-filtered props)]
                     (when (pos? num)
                       (str (:num-filtered props)
-                           " workspace(s) unavailable because they contain protected data."))))
+                           " workspace(s) unavailable because they contain data from other authorization domains."))))
         :data (:workspaces props)
         :->row (fn [ws]
                  [(get-in ws ["workspace" "namespace"])
@@ -44,16 +44,16 @@
                   (get-in ws ["workspace" "createdBy"])
                   (get-in ws ["workspace" "createdDate"])
                   (ws "accessLevel")
-                  (get-in ws ["workspace" "isProtected"])])}]])})
+                  (get-in ws ["workspace" "authorizationDomain" "usersGroupName"])])}]])})
 
 (defn- remove-self [workspace-id workspace-list]
   (filter #(not= workspace-id {:namespace (get-in % ["workspace" "namespace"])
                                :name (get-in % ["workspace" "name"])}) workspace-list))
 
-(defn- filter-workspaces [this-realm workspace-list]
-  (filter #(let [src-realm (get-in % ["workspace" "realm" "groupName"])]
+(defn- filter-workspaces [this-authdomain workspace-list]
+  (filter #(let [src-authdomain (get-in % ["workspace" "authorizationDomain" "usersGroupName"])]
              (and
-              (or (nil? src-realm) (= src-realm this-realm))
+              (or (nil? src-authdomain) (= src-authdomain this-authdomain))
               (not= (% "accessLevel") "NO ACCESS")))
     workspace-list))
 
@@ -93,7 +93,7 @@
         :on-done (fn [{:keys [success? status-text get-parsed-response]}]
                    (if success?
                      (let [all-workspaces (remove-self (:workspace-id props) (get-parsed-response false))
-                           filtered-workspaces (filter-workspaces (:this-realm props) all-workspaces)]
+                           filtered-workspaces (filter-workspaces (:this-authdomain props) all-workspaces)]
                        (swap! state assoc :workspaces filtered-workspaces
                          :num-filtered (- (count all-workspaces) (count filtered-workspaces))))
                      (swap! state assoc :error-message status-text)))}))})

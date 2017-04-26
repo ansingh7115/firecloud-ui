@@ -175,8 +175,8 @@
                              (if (utils/check-server-down status-code)
                                (if (>= (:failedRetries @state) (config/max-retry-attempts))
                                  (swap! state assoc :alerts [{:title "Google Service Alert"
-                                                            :message "There may be problems accessing data in Google Cloud Storage."
-                                                            :link "https://status.cloud.google.com/"}])
+                                                              :message "There may be problems accessing data in Google Cloud Storage."
+                                                              :link "https://status.cloud.google.com/"}])
                                  (swap! state assoc :failedRetries (+ (:failedRetries @state) 1)))
                                (let [[parsed _] (utils/parse-json-string raw-response true false)]
                                  (if (not-empty parsed)

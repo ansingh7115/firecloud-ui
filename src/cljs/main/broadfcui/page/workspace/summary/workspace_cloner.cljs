@@ -49,22 +49,12 @@
              permission on the workspace. If a user with access to the workspace clones it, any Domain associations will
              be retained by the new copy. If a user tries to share the clone with a person who is not in the Domain, the
              data remains protected. " [:a {:href "#status" :target "_blank" :style {:textDecoration "none"}} "Read more about Authorization Domains."]]})]
-          (style/create-select
-            {:ref "authdomain"
-             :disabled (:auth-domain props)
-             :selected (:auth-domain props)
-             :onChange #(swap! state assoc :selected-authdomain (-> % .-target .-value))}
-            (:groups @state))
-          #_(if (:is-protected? props)
-            [:div {} "Cloned workspace will automatically be protected because this workspace is protected."]
-            [comps/Checkbox
-             {:ref "protected-check"
-              :label "Workspace intended to contain NIH protected data"
-              :disabled? (not= (:protected-option @state) :enabled)
-              :disabled-text (case (:protected-option @state)
-                               :not-loaded "Account status has not finished loading."
-                               :not-available "This option is not available for your account."
-                               nil)}])
+          (if-let [auth-domain (:auth-domain props)]
+            [:div {} (str "Cloned workspace will automatically inherit the authorization domain " auth-domain " from this workspace.")]
+            (style/create-select
+              {:ref "authdomain"
+               :onChange #(swap! state assoc :selected-authdomain (-> % .-target .-value))}
+              (:groups @state)))
           (style/create-validation-error-message (:validation-error @state))
           [comps/ErrorViewer {:error (:error @state)
                               :expect {409 "A workspace with this name already exists in this project"}}]])}])
@@ -86,7 +76,9 @@
              attributes (if (or (:description props) (not (clojure.string/blank? desc)))
                           {:description desc}
                           {})
-             auth-domain (if (> (int (:selected-authdomain @state)) 0) {:authorizationDomain {:usersGroupName (nth (:groups @state) (int (:selected-authdomain @state)))}} nil)]
+             auth-domain (if (:auth-domain props)
+                           {:authorizationDomain {:usersGroupName (:auth-domain props)}}
+                           {:authorizationDomain {:usersGroupName (nth (:groups @state) (int (:selected-authdomain @state)))}})]
          (swap! state assoc :working? true :validation-error nil :error nil)
          (endpoints/call-ajax-orch
            {:endpoint (endpoints/clone-workspace (:workspace-id props))

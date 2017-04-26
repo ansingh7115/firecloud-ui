@@ -4,6 +4,7 @@
    [broadfcui.common :as common]
    [broadfcui.common.components :as comps]
    [broadfcui.common.style :as style]
+   [broadfcui.config :as config]
    [broadfcui.endpoints :as endpoints]
    [broadfcui.nav :as nav]
    [broadfcui.page.workspace.analysis.tab :as analysis-tab]
@@ -19,7 +20,7 @@
   {:render
    (fn [{:keys [props]}]
      (let [{:keys [workspace]} props]
-       (when (and workspace (get-in workspace [:workspace :realm]))
+       (when (and workspace (= (get-in workspace [:workspace :authorizationDomain :usersGroupName]) (config/dbgap-authorization-domain)))
          [:div {:style {:paddingTop 2}}
           [:div {:style {:backgroundColor "#ccc"
                          :fontSize "small"

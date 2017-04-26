@@ -19,7 +19,7 @@
         required {"apiUrlRoot" :string "googleClientId" :string "tcgaNamespace" :string}
         optional {"isDebug" :boolean "shibbolethUrlRoot" :string
                   "submissionStatusRefresh" :integer "userGuideUrl" :string "alertsJsonUrl" :string
-                  "workflowCountWarningThreshold" :integer "billingGuideUrl" :string
+                  "workflowCountWarningThreshold" :integer "billingGuideUrl" :string "dbGapAuthorizationDomain" :string
                   "callCachingGuideUrl" :string "alertsPollInterval" :integer "forumUrl" :string}
         all (merge required optional)
         missing-required (filter #(not (contains? config-keys %)) (keys required))
@@ -50,4 +50,5 @@
 (defn forum-url [] (get @config "forumUrl"))
 (defn billing-guide-url [] (get @config "billingGuideUrl"))
 (defn call-caching-guide-url [] (get @config "callCachingGuideUrl"))
+(defn dbgap-authorization-domain [] (get @config "dbGapAuthorizationDomain"))
 (defn alerts-json-url [] (get @config "alertsJsonUrl" "https://storage.googleapis.com/firecloud-alerts-dev/alerts.json"))
