@@ -51,4 +51,4 @@
 (defn billing-guide-url [] (get @config "billingGuideUrl"))
 (defn call-caching-guide-url [] (get @config "callCachingGuideUrl"))
 (defn dbgap-authorization-domain [] (get @config "dbGapAuthorizationDomain"))
-(defn alerts-json-url [] (get @config "alertsJsonUrl" "https://storage.googleapis.com/firecloud-alerts-dev/alerts.json"))
+(defn alerts-json-url [] (get @config "alertsJsonUrl"))
