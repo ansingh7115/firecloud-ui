@@ -181,11 +181,7 @@
                                               [AclEditor {:workspace-id workspace-id
                                                           :user-access-level user-access-level
                                                           :request-refresh request-refresh}])})
-              ")"])]
-          (when auth-domain
-            [:div {:style {:paddingTop "0.5rem"}}
-             [:div {:style {:fontStyle "italic"}} "Access restricted to authorization domain:"]
-             [:div {} auth-domain]])))
+              ")"])]))
       (render-detail-box
         3
         "Created By"

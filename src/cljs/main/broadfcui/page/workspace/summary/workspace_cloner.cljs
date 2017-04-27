@@ -51,7 +51,7 @@
              be retained by the new copy. If a user tries to share the clone with a person who is not in the Domain, the
              data remains protected. " [:a {:href (str (config/authdomain-guide-url)) :target "_blank" :style {:textDecoration "none"}} "Read more about Authorization Domains."]]})]
           (if-let [auth-domain (:auth-domain props)]
-            [:div {} (str "Cloned workspace will automatically inherit the authorization domain " auth-domain " from this workspace.")]
+            [:div {:style {:fontStyle "italic" :fontSize "80%"}} (str "The cloned workspace will automatically inherit the authorization domain " auth-domain " from this workspace.")]
             (style/create-select
               {:ref "authdomain"
                :onChange #(swap! state assoc :selected-authdomain (-> % .-target .-value))}

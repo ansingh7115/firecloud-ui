@@ -19,14 +19,15 @@
 (react/defc ProtectedBanner
   {:render
    (fn [{:keys [props]}]
-     (let [{:keys [workspace]} props]
-       (when (and workspace (= (get-in workspace [:workspace :authorizationDomain :usersGroupName]) (config/dbgap-authorization-domain)))
+     (let [{:keys [workspace]} props this-authdomain (get-in workspace [:workspace :authorizationDomain :usersGroupName])
+           dbGapProtected (= this-authdomain (config/dbgap-authorization-domain))]
+       (when (and workspace (get-in workspace [:workspace :authorizationDomain :usersGroupName]))
          [:div {:style {:paddingTop 2}}
           [:div {:style {:backgroundColor "#ccc"
                          :fontSize "small"
                          :padding "4px 0"
                          :textAlign "center"}}
-           "This is a " [:b {} "restricted"] " workspace for TCGA Controlled Access Data."]
+           "Access to this workspace is " [:b {} "restricted"] " to: " this-authdomain (when dbGapProtected " (TCGA Controlled Access Data)")]
           [:div {:style {:height 1 :backgroundColor "#bbb" :marginTop 2}}]])))})
 
 (react/defc BucketBanner
