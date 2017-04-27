@@ -140,7 +140,7 @@
                                                       (utils/restructure namespace name)))
                         :workspace-id workspace-id
                         :description description
-                        :auth-domain (get-in authorizationDomain [:usersGroupName])
+                        :auth-domain (:usersGroupName authorizationDomain)
                         :billing-projects billing-projects}])}])
        (when (and owner? (not editing?))
          [comps/SidebarButton {:style :light :margin :top :color :button-primary

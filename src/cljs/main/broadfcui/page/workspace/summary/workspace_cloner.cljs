@@ -23,50 +23,51 @@
        :get-first-element-dom-node #(@refs "project")
        :content
        (react/create-element
-         [:div {}
-          (when (:working? @state)
-            [comps/Blocker {:banner "Cloning..."}])
-          (style/create-form-label "Billing Project")
-          (style/create-select {:ref "project"
-                                :value (:selected-project @state)
-                                :onChange #(swap! state assoc :selected-project (-> % .-target .-value))}
-                               (:billing-projects props))
-          (style/create-form-label "Name")
-          [input/TextField {:ref "name"
-                            :style {:width "100%"}
-                            :defaultValue (get-in props [:workspace-id :name])
-                            :placeholder "Required"
-                            :predicates [(input/nonempty "Workspace name")
-                                         (input/alphanumeric_- "Workspace name")]}]
-          (style/create-textfield-hint "Only letters, numbers, underscores, and dashes allowed")
-          (style/create-form-label "Description (optional)")
-          (style/create-text-area {:style {:width "100%"} :rows 5 :ref "wsDescription"
-                                   :defaultValue (:description props)})
-          [:div {:style {:display "flex"}}
-           (style/create-form-label "Authorization Domain")
-           (common/render-info-box
-             {:text [:div {} [:strong {} "Note:"] [:br] "Once this workspace is associated with an Authorization Domain,
+        [:div {}
+         (when (:working? @state)
+           [comps/Blocker {:banner "Cloning..."}])
+         (style/create-form-label "Billing Project")
+         (style/create-select {:ref "project"
+                               :value (:selected-project @state)
+                               :onChange #(swap! state assoc :selected-project (-> % .-target .-value))}
+                              (:billing-projects props))
+         (style/create-form-label "Name")
+         [input/TextField {:ref "name"
+                           :style {:width "100%"}
+                           :defaultValue (get-in props [:workspace-id :name])
+                           :placeholder "Required"
+                           :predicates [(input/nonempty "Workspace name")
+                                        (input/alphanumeric_- "Workspace name")]}]
+         (style/create-textfield-hint "Only letters, numbers, underscores, and dashes allowed")
+         (style/create-form-label "Description (optional)")
+         (style/create-text-area {:style {:width "100%"} :rows 5 :ref "wsDescription"
+                                  :defaultValue (:description props)})
+         [:div {:style {:display "flex"}}
+          (style/create-form-label "Authorization Domain")
+          (common/render-info-box
+           {:text [:div {} [:strong {} "Note:"] [:br] "Once this workspace is associated with an Authorization Domain,
              a user can access the data only if they are a member of the Domain and have been granted read or write
              permission on the workspace. If a user with access to the workspace clones it, any Domain associations will
              be retained by the new copy. If a user tries to share the clone with a person who is not in the Domain, the
-             data remains protected. " [:a {:href (str (config/authdomain-guide-url)) :target "_blank" :style {:textDecoration "none"}} "Read more about Authorization Domains."]]})]
-          (if-let [auth-domain (:auth-domain props)]
-            [:div {:style {:fontStyle "italic" :fontSize "80%"}} (str "The cloned workspace will automatically inherit the authorization domain " auth-domain " from this workspace.")]
-            (style/create-select
-              {:ref "authdomain"
-               :onChange #(swap! state assoc :selected-authdomain (-> % .-target .-value))}
-              (:groups @state)))
-          (style/create-validation-error-message (:validation-error @state))
-          [comps/ErrorViewer {:error (:error @state)
-                              :expect {409 "A workspace with this name already exists in this project"}}]])}])
+             data remains protected. " [:a {:href (str (config/auth-domain-guide-url)) :target "_blank" :style {:textDecoration "none"}} "Read more about Authorization Domains."]]})]
+         (if-let [auth-domain (:auth-domain props)]
+           [:div {:style {:fontStyle "italic" :fontSize "80%"}}
+            "The cloned workspace will automatically inherit the authorization domain "
+            [:strong {} auth-domain] " from this workspace."]
+           (style/create-select
+            {:ref "auth-domain"
+             :onChange #(swap! state assoc :selected-auth-domain (-> % .-target .-value))}
+            (:groups @state)))
+         (style/create-validation-error-message (:validation-error @state))
+         [comps/ErrorViewer {:error (:error @state)
+                             :expect {409 "A workspace with this name already exists in this project"}}]])}])
    :component-did-mount
    (fn [{:keys [state]}]
-     (endpoints/call-ajax-orch
-       {:endpoint (endpoints/groups-list)
-        :headers utils/content-type=json
-        :on-done (fn [{:keys [success? get-parsed-response]}]
-                   (swap! state assoc :groups (conj (map (fn[g] (get-in g [:managedGroupRef :usersGroupName]))
-                                                         (mapv utils/keywordize-keys (get-parsed-response false))) "Anyone who is given permission")))}))
+     (endpoints/get-groups
+      (fn [success? parsed-response]
+        (swap! state assoc :groups
+               (conj (map #(:groupName %) parsed-response)
+                     "Anyone who is given permission")))))
    :do-clone
    (fn [{:keys [props refs state]}]
      (if-let [fails (input/validate refs "name")]
@@ -79,14 +80,14 @@
                           {})
              auth-domain (if (:auth-domain props)
                            {:authorizationDomain {:usersGroupName (:auth-domain props)}}
-                           {:authorizationDomain {:usersGroupName (nth (:groups @state) (int (:selected-authdomain @state)))}})]
+                           {:authorizationDomain {:usersGroupName (nth (:groups @state) (int (:selected-auth-domain @state)))}})]
          (swap! state assoc :working? true :validation-error nil :error nil)
          (endpoints/call-ajax-orch
-           {:endpoint (endpoints/clone-workspace (:workspace-id props))
-            :payload (conj {:namespace project :name name :attributes attributes} auth-domain)
-            :headers utils/content-type=json
-            :on-done (fn [{:keys [success? get-parsed-response]}]
-                       (swap! state dissoc :working?)
-                       (if success?
-                         (do (modal/pop-modal) ((:on-success props) project name))
-                         (swap! state assoc :error (get-parsed-response false))))}))))})
+          {:endpoint (endpoints/clone-workspace (:workspace-id props))
+           :payload (conj {:namespace project :name name :attributes attributes} auth-domain)
+           :headers utils/content-type=json
+           :on-done (fn [{:keys [success? get-parsed-response]}]
+                      (swap! state dissoc :working?)
+                      (if success?
+                        (do (modal/pop-modal) ((:on-success props) project name))
+                        (swap! state assoc :error (get-parsed-response false))))}))))})

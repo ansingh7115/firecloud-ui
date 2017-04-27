@@ -704,9 +704,14 @@
     :canned-response {:status 200 :delay-ms (rand-int 2000)}}))
 
 
-(defn groups-list []
-  {:path "/groups"
-   :method :get})
+(defn get-groups [on-done]
+  (call-ajax-orch
+   {:endpoint {:path "/groups"
+               :method :get}
+    :on-done (fn [{:keys [success? status-text get-parsed-response]}]
+               (if success?
+                 (on-done nil (get-parsed-response))
+                 (on-done status-text nil)))}))
 
 
 (defn get-billing-projects

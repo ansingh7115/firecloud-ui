@@ -110,8 +110,9 @@
    {:title "TCGA Access"
     :options [:open :protected]
     :render #(if (= % :open) "TCGA Open Access" "TCGA Protected Access")
-    :predicate (fn [ws option] (and (= (config/tcga-namespace) (get-in ws [:workspace :namespace]))
-                                    ((if (= option :open) not identity) (get-in ws [:workspace :authorizationDomain]))))}])
+    :predicate (fn [ws option]
+                 (and (= (config/tcga-namespace) (get-in ws [:workspace :namespace]))
+                      ((if (= option :open) not identity) (get-in ws [:workspace :authorizationDomain]))))}])
 
 (def ^:private persistence-key "workspace-table-types")
 (def ^:private VERSION 2)
