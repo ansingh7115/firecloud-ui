@@ -6,6 +6,7 @@
     [broadfcui.common.input :as input]
     [broadfcui.common.modal :as modal]
     [broadfcui.common.style :as style]
+    [broadfcui.config :as config]
     [broadfcui.endpoints :as endpoints]
     [broadfcui.utils :as utils]
     ))
@@ -48,7 +49,7 @@
              a user can access the data only if they are a member of the Domain and have been granted read or write
              permission on the workspace. If a user with access to the workspace clones it, any Domain associations will
              be retained by the new copy. If a user tries to share the clone with a person who is not in the Domain, the
-             data remains protected. " [:a {:href "#status" :target "_blank" :style {:textDecoration "none"}} "Read more about Authorization Domains."]]})]
+             data remains protected. " [:a {:href (str (config/authdomain-guide-url)) :target "_blank" :style {:textDecoration "none"}} "Read more about Authorization Domains."]]})]
           (if-let [auth-domain (:auth-domain props)]
             [:div {} (str "Cloned workspace will automatically inherit the authorization domain " auth-domain " from this workspace.")]
             (style/create-select

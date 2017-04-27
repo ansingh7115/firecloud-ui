@@ -20,7 +20,7 @@
         optional {"isDebug" :boolean "shibbolethUrlRoot" :string
                   "submissionStatusRefresh" :integer "userGuideUrl" :string "alertsJsonUrl" :string
                   "workflowCountWarningThreshold" :integer "billingGuideUrl" :string "dbGapAuthorizationDomain" :string
-                  "callCachingGuideUrl" :string "alertsPollInterval" :integer "forumUrl" :string}
+                  "callCachingGuideUrl" :string "alertsPollInterval" :integer "forumUrl" :string "authDomainGuideUrl" :string}
         all (merge required optional)
         missing-required (filter #(not (contains? config-keys %)) (keys required))
         extra (clojure.set/difference config-keys (set (keys all)))
@@ -48,6 +48,7 @@
 (defn max-retry-attempts [] (get @config "maxRetryAttempts" 6)) ;; 6 exponential retries = ~ 2 minutes
 (defn user-guide-url [] (get @config "userGuideUrl"))
 (defn forum-url [] (get @config "forumUrl"))
+(defn authdomain-guide-url [] (get @config "authDomainGuideUrl"))
 (defn billing-guide-url [] (get @config "billingGuideUrl"))
 (defn call-caching-guide-url [] (get @config "callCachingGuideUrl"))
 (defn dbgap-authorization-domain [] (get @config "dbGapAuthorizationDomain"))

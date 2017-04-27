@@ -153,7 +153,7 @@
                                  :href (let [x (:workspace ws)] (str (:namespace x) ":" (:name x)))
                                  :status (:status ws)
                                  :disabled? disabled?
-                                 :hover-text (when disabled? (if (= (get-in ws [:workspace :authorizationDomain :usersGroupName]) "dbGapAuthorizedUsers")
+                                 :hover-text (when disabled? (if (= (get-in ws [:workspace :authorizationDomain :usersGroupName]) (config/dbgap-authorization-domain))
                                                                dbGap-disabled-text
                                                                non-dbGap-disabled-text))
                                  :restricted? (some? (get-in ws [:workspace :authorizationDomain :usersGroupName]))}))]
