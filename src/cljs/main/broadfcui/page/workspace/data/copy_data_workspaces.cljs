@@ -21,7 +21,7 @@
        {:empty-message "There are no workspaces to display."
         :reorderable-columns? false
         :columns [{:header "Billing Project" :starting-width 150}
-                  {:header :name :starting-width 150
+                  {:header "Name" :starting-width 150
                    :as-text #(get-in % [:workspace :name]) :sort-by :text
                    :content-renderer
                    (fn [ws]
@@ -31,7 +31,7 @@
                   (table/date-column {})
                   {:header "Access Level" :starting-width 106}
                   {:header "Authorization Domain" :starting-width 150
-                   :content-renderer #(if % % "None")}]
+                   :content-renderer #(or % "None")}]
         :toolbar (default-toolbar-layout
                   (let [num (:num-filtered props)]
                     (when (pos? num)
