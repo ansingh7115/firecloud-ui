@@ -45,11 +45,14 @@
          [:div {:style {:display "flex"}}
           (style/create-form-label "Authorization Domain")
           (common/render-info-box
-           {:text [:div {} [:strong {} "Note:"] [:br] "Once this workspace is associated with an Authorization Domain,
-             a user can access the data only if they are a member of the Domain and have been granted read or write
-             permission on the workspace. If a user with access to the workspace clones it, any Domain associations will
-             be retained by the new copy. If a user tries to share the clone with a person who is not in the Domain, the
-             data remains protected. " [:a {:href (str (config/auth-domain-guide-url)) :target "_blank" :style {:textDecoration "none"}} "Read more about Authorization Domains."]]})]
+            {:text [:div {} [:strong {} "Note:"]
+                    [:div {} "Once this workspace is associated with an Authorization Domain, a user
+                   can access the data only if they are a member of the Domain and have been granted
+                   read or write permission on the workspace. If a user with access to the workspace
+                   clones it, any Domain associations will be retained by the new copy. If a user
+                   tries to share the clone with a person who is not in the Domain, the data remains protected. "]
+                    (style/create-link {:href (str (config/auth-domain-guide-url)) :target "_blank"
+                                        :text "Read more about Authorization Domains"})]})]
          (if-let [auth-domain (:auth-domain props)]
            [:div {:style {:fontStyle "italic" :fontSize "80%"}}
             "The cloned workspace will automatically inherit the authorization domain "
