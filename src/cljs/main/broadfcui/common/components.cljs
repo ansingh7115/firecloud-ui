@@ -171,6 +171,7 @@
                       :color (if heavy? "#fff" color)
                       :border (when-not heavy? style/standard-line)
                       :borderRadius 5}
+              :data-test-id (:test-id props)
               :onClick (if disabled? (create-error-message disabled?) (:onClick props))}
         (icons/icon {:style {:padding "0 20px" :borderRight style/standard-line} :className "fa-fw"} (:icon props))
         [:div {:style {:textAlign "center" :margin "auto"}}
@@ -617,7 +618,7 @@
 
 (defn push-error [content]
   (push-ok-cancel-modal
-   {:header [:div {:style {:display "inline-flex" :alignItems "center"}}
+   {:header [:div {:style {:display "inline-flex" :alignItems "center"} :data-test-id "push-error"}
              (icons/icon {:style {:color (:exception-state style/colors)
                                   :marginRight "0.5em"}} :error)
              "Error"]
