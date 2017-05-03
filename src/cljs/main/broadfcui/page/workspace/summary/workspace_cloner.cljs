@@ -51,7 +51,8 @@
                    read or write permission on the workspace. If a user with access to the workspace
                    clones it, any Domain associations will be retained by the new copy. If a user
                    tries to share the clone with a person who is not in the Domain, the data remains protected. "]
-                    (style/create-link {:href (str (config/auth-domain-guide-url)) :target "_blank"
+                    (style/create-link {:href "https://software.broadinstitute.org/firecloud/documentation/article?id=9524"
+                                        :target "_blank"
                                         :text "Read more about Authorization Domains"})]})]
          (if-let [auth-domain (:auth-domain props)]
            [:div {:style {:fontStyle "italic" :fontSize "80%"}}

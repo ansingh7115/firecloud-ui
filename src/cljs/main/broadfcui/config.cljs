@@ -48,7 +48,6 @@
 (defn max-retry-attempts [] (get @config "maxRetryAttempts" 6)) ;; 6 exponential retries = ~ 2 minutes
 (defn user-guide-url [] (get @config "userGuideUrl"))
 (defn forum-url [] (get @config "forumUrl"))
-(defn auth-domain-guide-url [] (get @config "authDomainGuideUrl"))
 (defn billing-guide-url [] (get @config "billingGuideUrl"))
 (defn call-caching-guide-url [] (get @config "callCachingGuideUrl"))
 (defn dbgap-authorization-domain [] (get @config "dbGapAuthorizationDomain"))
