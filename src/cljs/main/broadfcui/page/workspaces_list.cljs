@@ -25,7 +25,7 @@
   (str "This workspace contains controlled access data. You can only access the contents of this workspace if you are "
        "dbGaP authorized for TCGA data and have linked your FireCloud account to your eRA Commons account."))
 
-(def non-dbGap-disabled-text "This workspace is protected. To access the data, please contact help@firecloud.org.")
+(def non-dbGap-disabled-text "Click to request access.")
 
 (react/defc StatusCell
   {:render
@@ -48,19 +48,45 @@
             "Running" [icons/RunningIcon]
             "Exception" [icons/ExceptionIcon]))]))})
 
+(defn- show-request-access-modal [ws-auth-domains user-auth-domains]
+   (comps/push-ok-cancel-modal
+    {:header [:span {} "Request Access"]
+     :content [:div {:style {:width 550}}
+               "You cannot access this workspace because it contains restricted data. "
+               "You need permission from the owner(s) of all of the Authorization Domains "
+               "protecting the workspace."
+               [:div {:style {:marginTop "1rem" :marginBottom "1rem"}}
+                [:div {:style {:display "inline-block" :width 250
+                               :fontWeight "500"}} "Authorization Domain"]
+                [:div {:style {:display "inline-block" :width 150
+                               :textAlign "center" :verticalAlign "middle"
+                               :fontWeight "500"}} "Access"]
+                [:div {:style {:display "inline-block" :width 150}}]]
+               (map (fn [auth-domain]
+                      (let [access? (contains? user-auth-domains auth-domain)]
+                        [:div {:style {:paddingBottom "0.5rem"}}
+                         [:div {:style {:display "inline-block" :width 250}} auth-domain]
+                         [:div {:style {:display "inline-block" :width 150 :textAlign "center"}}
+                          (if access? "Yes" "No")]
+                         (when-not access? [comps/Button {:style {:display "inline-block" :height "1rem"}
+                                        :text "Request Access"
+                                        :onClick #(utils/cljslog "Requested access...")}])]))
+                    ws-auth-domains)]
+     :show-cancel? true}))
 
 (react/defc WorkspaceCell
   {:render
-   (fn [{:keys [props]}]
+   (fn [{:keys [props this]}]
      (let [{:keys [data]} props
-           {:keys [status restricted? disabled? hover-text workspace-id]} data
+           {:keys [status restricted? disabled? no-access? hover-text workspace-id auth-domains]} data
            {:keys [namespace name]} workspace-id
            color (style/color-for-status status)]
-       [:a {:href (if disabled?
+       [:a {:href (if no-access?
                     "javascript:;"
                     (nav/get-link :workspace-summary workspace-id))
+            :onClick (if no-access? #(react/call :-do-shit this))
             :style {:display "flex" :alignItems "center"
-                    :backgroundColor (if disabled? (:disabled-state style/colors) color)
+                    :backgroundColor (if no-access? (:disabled-state style/colors) color)
                     :color "white" :textDecoration "none"
                     :cursor (when disabled? "default")
                     :height (- row-height-px 4)
@@ -75,7 +101,12 @@
             "RESTRICTED"]])
         [:div {:style {:paddingLeft 24}}
          [:div {:style {:fontSize "80%"}} namespace]
-         [:div {:style {:fontWeight 600}} name]]]))})
+         [:div {:style {:fontWeight 600}} name]]]))
+   :-do-shit
+   (fn [{:keys [props]}]
+     (endpoints/get-groups
+      (fn [success? parsed-response]
+        (do (show-request-access-modal #{"fake-auth-domain" "other-auth-domain"} #{"fake-auth-domain"}#_(map #(:groupName %) parsed-response))))))})
 
 (defn- get-workspace-name-string [column-data]
   (str (get-in column-data [:workspace-id :namespace]) "/" (get-in column-data [:workspace-id :name])))
@@ -142,19 +173,25 @@
    :render
    (fn [{:keys [props state this locals]}]
      (let [{:keys [nav-context]} props
-           {:keys [filters-expanded?]} @state]
+           {:keys [filters-expanded? groups]} @state]
        [Table
         {:ref "table" :persistence-key "workspace-table" :v 2
          :body
          {:data-source (table-utils/local (this :-filter-workspaces) (:total-count @locals))
           :columns
           (let [column-data (fn [ws]
-                              (let [disabled? (= (:accessLevel ws) "NO ACCESS")]
+                              (let [no-access? (= (:accessLevel ws) "NO ACCESS")
+                                    disabled? (and no-access? (= (get-in ws [:workspace :authorizationDomain :usersGroupName])
+                                                                 (config/dbgap-authorization-domain)))]
                                 {:workspace-id (select-keys (:workspace ws) [:namespace :name])
                                  :href (let [x (:workspace ws)] (str (:namespace x) ":" (:name x)))
                                  :status (:status ws)
                                  :disabled? disabled?
-                                 :hover-text (when disabled? (if (= (get-in ws [:workspace :authorizationDomain :usersGroupName]) (config/dbgap-authorization-domain))
+                                 :groups groups
+                                 :auth-domains [(get-in ws [:workspace :authorizationDomain :usersGroupName])] ;; this will very soon return multiple auth domains, so im future-proofing it now
+                                 :no-access? no-access?
+                                 :hover-text (when no-access? (if (= (get-in ws [:workspace :authorizationDomain :usersGroupName])
+                                                                    (config/dbgap-authorization-domain))
                                                                dbGap-disabled-text
                                                                non-dbGap-disabled-text))
                                  :restricted? (some? (get-in ws [:workspace :authorizationDomain :usersGroupName]))}))]
@@ -165,7 +202,7 @@
               :column-data column-data :as-text :status
               :render (fn [data] [StatusCell (utils/restructure data nav-context)])}
              {:id "Workspace" :header [:span {:style {:marginLeft 24}} "Workspace"]
-              :initial-width 300
+              :onClick #(utils/cljslog "foo")
               :column-data column-data :as-text get-workspace-name-string
               :sort-by #(mapv clojure.string/lower-case (replace (:workspace-id %) [:namespace :name]))
               :render (fn [data] [WorkspaceCell (utils/restructure data nav-context)])}
@@ -277,6 +314,7 @@
    :render
    (fn [{:keys [props state]}]
      (let [server-response (:server-response @state)
+
            {:keys [workspaces billing-projects error-message disabled-reason]} server-response]
        (cond
          error-message (style/create-server-error-message error-message)
@@ -301,6 +339,13 @@
                                            (get-parsed-response)))
                      (swap! state update :server-response
                        assoc :error-message status-text)))})
+     (endpoints/get-groups
+      (fn [success? status-text get-parsed-response]
+        (if success?
+          (swap! state update :server-response
+               assoc :group(map #(:groupName %) get-parsed-response))
+          (swap! state update :service-response
+                 assoc :error-message status-text))))
      (endpoints/get-billing-projects
       (fn [err-text projects]
         (if err-text
