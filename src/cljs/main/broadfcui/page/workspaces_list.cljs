@@ -12,6 +12,7 @@
     [broadfcui.common.table.utils :as table-utils]
     [broadfcui.config :as config]
     [broadfcui.endpoints :as endpoints]
+    [broadfcui.common.modal :as modal]
     [broadfcui.nav :as nav]
     [broadfcui.page.workspace.create :as create]
     [broadfcui.persistence :as persistence]
@@ -48,31 +49,86 @@
             "Running" [icons/RunningIcon]
             "Exception" [icons/ExceptionIcon]))]))})
 
-(defn- show-request-access-modal [ws-auth-domains user-auth-domains]
-   (comps/push-ok-cancel-modal
-    {:header [:span {} "Request Access"]
-     :content [:div {:style {:width 550}}
-               "You cannot access this workspace because it contains restricted data. "
-               "You need permission from the owner(s) of all of the Authorization Domains "
-               "protecting the workspace."
-               [:div {:style {:marginTop "1rem" :marginBottom "1rem"}}
-                [:div {:style {:display "inline-block" :width 250
-                               :fontWeight "500"}} "Authorization Domain"]
-                [:div {:style {:display "inline-block" :width 150
-                               :textAlign "center" :verticalAlign "middle"
-                               :fontWeight "500"}} "Access"]
-                [:div {:style {:display "inline-block" :width 150}}]]
-               (map (fn [auth-domain]
-                      (let [access? (contains? user-auth-domains auth-domain)]
-                        [:div {:style {:paddingBottom "0.5rem"}}
-                         [:div {:style {:display "inline-block" :width 250}} auth-domain]
-                         [:div {:style {:display "inline-block" :width 150 :textAlign "center"}}
-                          (if access? "Yes" "No")]
-                         (when-not access? [comps/Button {:style {:display "inline-block" :height "1rem"}
-                                        :text "Request Access"
-                                        :onClick #(utils/cljslog "Requested access...")}])]))
-                    ws-auth-domains)]
-     :show-cancel? true}))
+(react/defc RequestAuthDomainAccessDialog
+  {:render
+   (fn [{:keys [state this]}]
+     [comps/OKCancelForm
+      {:header "Request Access"
+       :content
+       (react/create-element
+        (let [{:keys [my-auth-domains error]} @state]
+          (cond
+            (not (or my-auth-domains error)) [comps/Spinner {:text "Loading authorization domains..."}]
+            error
+            (case (:code error)
+              (:unknown :parse-error)
+              [:div {:style {:color (:exception-state style/colors)}}
+               "Error:" [:br] (:details error)]
+              [comps/ErrorViewer {:error (:details error)}])
+            :else
+              [:div {:style {:width 750}}
+               (when (:creating? @state)
+                 [comps/Blocker {:banner "Creating billing account..."}])
+               (let [simple-th (fn [text]
+                                 [:th {:style {:textAlign "left" :padding "0 0.5rem"}} text])
+                     simple-td (fn [text]
+                                 [:td {:style {:borderTop style/standard-line}}
+                                  [:label {:style {:display "block" :padding "10rem 0.5rem"}} text]])]
+                 [:form {:style {:margin "1em 0 1em 0"}}
+                  [:table {:style {:width "100%" :borderCollapse "collapse"}}
+                   [:thead {} [:tr {}
+                               (simple-th "Authorization Domain")
+                               (simple-th "Access")
+                               (simple-th "")]]
+                   [:tbody {}
+                    (map (fn [auth-domain]
+                           [:tr {:style {:borderTop style/standard-line}}
+                            (simple-td (:name auth-domain))
+                            (simple-td (str (:access auth-domain)))
+                            [comps/Button {:style {:margin "10rem 0.5rem"}
+                                           :text "Request Access"
+                                           :onClick #(utils/cljslog "Requested access...")}]])
+                         [{:name "my_test_domain" :access false} {:name "my_test_domain2" :access true}])]]])
+               [comps/ErrorViewer {:error (:server-error @state)}]])))}])
+   :component-did-mount
+   (fn [{:keys [this]}]
+     (react/call :load-data this))
+   :load-data
+   (fn [{:keys [state refs after-update]}]
+     (endpoints/get-groups
+      (fn [err-text groups]
+        (if err-text
+          (swap! state assoc :error-message err-text)
+          (swap! state assoc :my-auth-domains groups)))))
+   :-request-access
+   (fn [{:keys [props state refs]}]
+     (utils/cljslog "request access..."))})
+
+;(defn- show-request-access-modal [ws-auth-domains user-auth-domains]
+;   (comps/push-ok-cancel-modal
+;    {:header [:span {} "Request Access"]
+;     :content [:div {:style {:width 550}}
+;               "You cannot access this workspace because it contains restricted data. "
+;               "You need permission from the owner(s) of all of the Authorization Domains "
+;               "protecting the workspace."
+;               [:div {:style {:marginTop "1rem" :marginBottom "1rem"}}
+;                [:div {:style {:display "inline-block" :width 250
+;                               :fontWeight "500"}} "Authorization Domain"]
+;                [:div {:style {:display "inline-block" :width 150
+;                               :textAlign "center" :verticalAlign "middle"
+;                               :fontWeight "500"}} "Access"]
+;                [:div {:style {:display "inline-block" :width 150}}]]
+;               (map (fn [auth-domain]
+;                      (let [access? (contains? user-auth-domains auth-domain)]
+;                        [:div {:style {:paddingBottom "0.5rem"}}
+;                         [:div {:style {:display "inline-block" :width 250}} auth-domain]
+;                         [:div {:style {:display "inline-block" :width 150 :textAlign "center"}}
+;                          (if access? "Yes" "No")]
+;                         (when-not access? [comps/Button {:style {:display "inline-block" :height "1rem"}
+;                                        :text "Request Access"
+;                                        :onClick #(utils/cljslog "Requested access...")}])]))
+;                    ws-auth-domains)]
+;     :show-cancel? true}))
 
 (react/defc WorkspaceCell
   {:render
@@ -104,9 +160,11 @@
          [:div {:style {:fontWeight 600}} name]]]))
    :-do-shit
    (fn [{:keys [props]}]
-     (endpoints/get-groups
-      (fn [success? parsed-response]
-        (do (show-request-access-modal #{"fake-auth-domain" "other-auth-domain"} #{"fake-auth-domain"}#_(map #(:groupName %) parsed-response))))))})
+     (modal/push-modal
+      [RequestAuthDomainAccessDialog
+       {:ws-auth-domains #{"fake-auth-domain" "other-auth-domain"}
+        :my-auth-domains #{"fake-auth-domain"}}])
+        #_(do (show-request-access-modal #{"fake-auth-domain" "other-auth-domain"} #{"fake-auth-domain"}#_(map #(:groupName %) parsed-response))))})
 
 (defn- get-workspace-name-string [column-data]
   (str (get-in column-data [:workspace-id :namespace]) "/" (get-in column-data [:workspace-id :name])))
