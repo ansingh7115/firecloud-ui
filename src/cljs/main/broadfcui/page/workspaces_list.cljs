@@ -32,12 +32,12 @@
   {:render
    (fn [{:keys [props]}]
      (let [{:keys [data]} props
-           {:keys [status disabled? hover-text workspace-id]} data]
+           {:keys [status disabled? no-access? hover-text workspace-id]} data]
        [:a {:href (if disabled?
                     "javascript:;"
                     (nav/get-link :workspace-summary workspace-id))
             :style {:display "block" :position "relative"
-                    :backgroundColor (if disabled? (:disabled-state style/colors) (style/color-for-status status))
+                    :backgroundColor (if no-access? (:disabled-state style/colors) (style/color-for-status status))
                     :margin "2px 0 2px 2px" :height (- row-height-px 4)
                     :cursor (when disabled? "default")}
             :title hover-text}
@@ -50,8 +50,19 @@
             "Exception" [icons/ExceptionIcon]))]))})
 
 (react/defc RequestAuthDomainAccessDialog
-  {:render
-   (fn [{:keys [state this]}]
+  {:get-initial-state
+   (fn [{:keys [props state]}]
+     {:ws-auth-domains (vec (map
+                        (fn [group]
+                          (utils/cljslog group)
+                          (utils/cljslog (:ws-auth-domains props))
+                          {:name group
+                           :data {:member? (contains? (:my-auth-domains @state) group)
+                                  :requested? false
+                                  :requesting? false}})
+                        (:ws-auth-domains props)))})
+   :render
+   (fn [{:keys [props state this]}]
      [comps/OKCancelForm
       {:header "Request Access"
        :content
@@ -67,13 +78,14 @@
               [comps/ErrorViewer {:error (:details error)}])
             :else
               [:div {:style {:width 750}}
-               (when (:creating? @state)
-                 [comps/Blocker {:banner "Creating billing account..."}])
+               [:div {} "You cannot access this workspace because it contains restricted data.
+                         You need permission from the owner(s) of all of the Authorization Domains
+                         protecting the workspace."]
                (let [simple-th (fn [text]
-                                 [:th {:style {:textAlign "left" :padding "0 0.5rem"}} text])
+                                 [:th {:style {:textAlign "left" :padding "0 0.5rem" :borderBottom style/standard-line}} text])
                      simple-td (fn [text]
-                                 [:td {:style {:borderTop style/standard-line}}
-                                  [:label {:style {:display "block" :padding "10rem 0.5rem"}} text]])]
+                                 [:td {}
+                                  [:label {:style {:display "block" :padding "1rem 0.5rem" :width "33%"}} text]])]
                  [:form {:style {:margin "1em 0 1em 0"}}
                   [:table {:style {:width "100%" :borderCollapse "collapse"}}
                    [:thead {} [:tr {}
@@ -81,54 +93,37 @@
                                (simple-th "Access")
                                (simple-th "")]]
                    [:tbody {}
-                    (map (fn [auth-domain]
-                           [:tr {:style {:borderTop style/standard-line}}
+                    (map-indexed (fn [i auth-domain]
+                           [:tr {}
                             (simple-td (:name auth-domain))
-                            (simple-td (str (:access auth-domain)))
-                            [comps/Button {:style {:margin "10rem 0.5rem"}
-                                           :text "Request Access"
-                                           :onClick #(utils/cljslog "Requested access...")}]])
-                         [{:name "my_test_domain" :access false} {:name "my_test_domain2" :access true}])]]])
+                            (simple-td (if (:member? (:data auth-domain)) "Yes" "No"))
+                            [:td {:style {:width "34%"}}
+                             (if-not (:member? (:data auth-domain))
+                               (if (:requested? (:data auth-domain))
+                                 [:div {:style {:fontSize "75%" :textAlign "center"}} "Your request has been submitted. When you are granted access, the " [:strong {} "Access Level"] " displayed on the Workspace list will be updated."]
+                                 [:div {} [comps/Button {:style {:width "125px"}
+                                                :disabled? (or (:member? (:data auth-domain)) (:requested? (:data auth-domain)) (:requesting? (:data auth-domain)))
+                                                :text (if (:requesting? (:data auth-domain)) "Sending Request" "Request Access")
+                                                :onClick #(react/call :-request-access this (:name auth-domain) i)}]
+                                  [comps/Spinner {:style {:visibility (if (:requesting? (:data auth-domain)) "inherit" "hidden")}}]]))]])
+                            (:ws-auth-domains @state))]]])
                [comps/ErrorViewer {:error (:server-error @state)}]])))}])
    :component-did-mount
    (fn [{:keys [this]}]
-     (react/call :load-data this))
-   :load-data
+     (react/call :-load-groups this))
+   :-load-groups
    (fn [{:keys [state refs after-update]}]
      (endpoints/get-groups
       (fn [err-text groups]
         (if err-text
           (swap! state assoc :error-message err-text)
-          (swap! state assoc :my-auth-domains groups)))))
+          (swap! state assoc :my-auth-domains (map :groupName groups))))))
    :-request-access
-   (fn [{:keys [props state refs]}]
-     (utils/cljslog "request access..."))})
-
-;(defn- show-request-access-modal [ws-auth-domains user-auth-domains]
-;   (comps/push-ok-cancel-modal
-;    {:header [:span {} "Request Access"]
-;     :content [:div {:style {:width 550}}
-;               "You cannot access this workspace because it contains restricted data. "
-;               "You need permission from the owner(s) of all of the Authorization Domains "
-;               "protecting the workspace."
-;               [:div {:style {:marginTop "1rem" :marginBottom "1rem"}}
-;                [:div {:style {:display "inline-block" :width 250
-;                               :fontWeight "500"}} "Authorization Domain"]
-;                [:div {:style {:display "inline-block" :width 150
-;                               :textAlign "center" :verticalAlign "middle"
-;                               :fontWeight "500"}} "Access"]
-;                [:div {:style {:display "inline-block" :width 150}}]]
-;               (map (fn [auth-domain]
-;                      (let [access? (contains? user-auth-domains auth-domain)]
-;                        [:div {:style {:paddingBottom "0.5rem"}}
-;                         [:div {:style {:display "inline-block" :width 250}} auth-domain]
-;                         [:div {:style {:display "inline-block" :width 150 :textAlign "center"}}
-;                          (if access? "Yes" "No")]
-;                         (when-not access? [comps/Button {:style {:display "inline-block" :height "1rem"}
-;                                        :text "Request Access"
-;                                        :onClick #(utils/cljslog "Requested access...")}])]))
-;                    ws-auth-domains)]
-;     :show-cancel? true}))
+   (fn [{:keys [props state refs]} group-name group-index]
+     (swap! state update-in [:ws-auth-domains group-index :data] assoc :requesting? true)
+     (endpoints/get-groups
+      (fn []
+        (swap! state update-in [:ws-auth-domains group-index :data] assoc :requesting? false :requested? true))))})
 
 (react/defc WorkspaceCell
   {:render
@@ -162,9 +157,7 @@
    (fn [{:keys [props]}]
      (modal/push-modal
       [RequestAuthDomainAccessDialog
-       {:ws-auth-domains #{"fake-auth-domain" "other-auth-domain"}
-        :my-auth-domains #{"fake-auth-domain"}}])
-        #_(do (show-request-access-modal #{"fake-auth-domain" "other-auth-domain"} #{"fake-auth-domain"}#_(map #(:groupName %) parsed-response))))})
+       {:ws-auth-domains (get-in props [:data :auth-domains])}]))})
 
 (defn- get-workspace-name-string [column-data]
   (str (get-in column-data [:workspace-id :namespace]) "/" (get-in column-data [:workspace-id :name])))
@@ -239,20 +232,20 @@
           :columns
           (let [column-data (fn [ws]
                               (let [no-access? (= (:accessLevel ws) "NO ACCESS")
-                                    disabled? (and no-access? (= (get-in ws [:workspace :authorizationDomain :usersGroupName])
+                                    disabled? (and no-access? (= (get-in ws [:workspace :authorizationDomain :membersGroupName])
                                                                  (config/dbgap-authorization-domain)))]
                                 {:workspace-id (select-keys (:workspace ws) [:namespace :name])
                                  :href (let [x (:workspace ws)] (str (:namespace x) ":" (:name x)))
                                  :status (:status ws)
                                  :disabled? disabled?
                                  :groups groups
-                                 :auth-domains [(get-in ws [:workspace :authorizationDomain :usersGroupName])] ;; this will very soon return multiple auth domains, so im future-proofing it now
+                                 :auth-domains (conj [](get-in ws [:workspace :authorizationDomain :membersGroupName])) ;; this will very soon return multiple auth domains, so im future-proofing it now
                                  :no-access? no-access?
-                                 :hover-text (when no-access? (if (= (get-in ws [:workspace :authorizationDomain :usersGroupName])
+                                 :hover-text (when no-access? (if (= (get-in ws [:workspace :authorizationDomain :membersGroupName])
                                                                     (config/dbgap-authorization-domain))
                                                                dbGap-disabled-text
                                                                non-dbGap-disabled-text))
-                                 :restricted? (some? (get-in ws [:workspace :authorizationDomain :usersGroupName]))}))]
+                                 :restricted? (some? (get-in ws [:workspace :authorizationDomain :membersGroupName]))}))]
             ;; All of this margining is terrible, but since this table
             ;; will be redesigned soon I'm leaving it as-is.
             [{:id "Status" :header [:span {:style {:marginLeft 7}} "Status"]
@@ -260,7 +253,6 @@
               :column-data column-data :as-text :status
               :render (fn [data] [StatusCell (utils/restructure data nav-context)])}
              {:id "Workspace" :header [:span {:style {:marginLeft 24}} "Workspace"]
-              :onClick #(utils/cljslog "foo")
               :column-data column-data :as-text get-workspace-name-string
               :sort-by #(mapv clojure.string/lower-case (replace (:workspace-id %) [:namespace :name]))
               :render (fn [data] [WorkspaceCell (utils/restructure data nav-context)])}
