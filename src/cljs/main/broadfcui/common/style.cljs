@@ -170,4 +170,4 @@
   [:div {:style {:display "inline-block"}}
    [:a {:href "/" :style {:fontSize 32 :color (:button-primary colors)
                           :fontWeight "bold" :textDecoration "none" :height 38}}
-    "FireCloud"]])
+    "happy fun demo!"]])
