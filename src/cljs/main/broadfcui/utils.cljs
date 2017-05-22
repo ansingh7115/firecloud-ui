@@ -95,6 +95,10 @@
                     (on-change u))))))
 
 (defn get-access-token []
+  ;; If the auth2 instance is returning expired tokens, coax it back to its senses by signing in (GAWB-2025)
+  (if (< (-> @auth2-atom
+             (aget "currentUser") (js-invoke "get") (js-invoke "getAuthResponse") (aget "expires_at")) (.getTime (js/Date.)))
+    (js-invoke @auth2-atom "signIn"))
   (-> @auth2-atom
       (aget "currentUser") (js-invoke "get") (js-invoke "getAuthResponse") (aget "access_token")))
 
