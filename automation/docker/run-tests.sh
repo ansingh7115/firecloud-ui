@@ -62,6 +62,7 @@ docker-compose -f hub-compose.yml up -d
 docker-compose -f hub-compose.yml scale chrome=$NUM_NODES
 
 # render ctmpls
+docker pull broadinstitute/dsde-toolbox:dev
 docker run --rm -e VAULT_TOKEN=${VAULT_TOKEN} \
     -e ENVIRONMENT=${ENV} -v ${WORKING_DIR}:/working \
     -e OUT_PATH=/working/target -e INPUT_PATH=/working \
@@ -77,7 +78,6 @@ docker run -e DOCKERHOST=$DOCKERHOST \
     -v $WORKING_DIR/target/application.conf:/app/automation/src/test/resources/application.conf \
     -v $WORKING_DIR/target/firecloud-account.pem:/app/automation/src/test/resources/firecloud-${ENV}.pem \
     -v $WORKING_DIR/failure_screenshots:/app/failure_screenshots \
-    -v jar-cache:/root/.ivy -v jar-cache:/root/.ivy2 \
     --link docker_hub_1:hub --name ${TEST_CONTAINER} -w /app \
     ${TEST_CONTAINER}:latest
 
