@@ -54,7 +54,7 @@
                     (swap! state assoc :error status-text)))}))})
 
 
-(defn- input-output-list [{:keys [values ref-prefix invalid-values editing? all-values]}]
+(defn- input-output-list [{:keys [values ref-prefix invalid-values editing? all-values suggestions]}]
   (create-section
    [:div {}
     (map
@@ -74,10 +74,11 @@
                                   :color (:exception-state style/colors)}}
                          :error))
            (when editing?
-             (style/create-text-field {:ref (str ref-prefix "_" name)
-                                       :list "inputs-datalist"
-                                       :defaultValue field-value
-                                       :style {:width 500}}))
+             [comps/Typeahead {:ref (str ref-prefix "_" name)
+                               :field-attributes {:defaultValue field-value
+                                                  :style {:width 500}}
+                               :local suggestions
+                               :behavior {:minLength 1}}])
            (when-not editing?
              (or field-value [:span {:style {:fontStyle "italic"}} "No value entered"]))]
           (when error
@@ -175,7 +176,10 @@
      (let [workspace-attributes (->> props :workspace :workspace :workspace-attributes keys (map name))
            {:keys [editing? loaded-config wdl-parse-error inputs-outputs methods data-attributes]} @state
            config (:methodConfiguration loaded-config)
-           {:keys [methodRepoMethod]} config]
+           {:keys [methodRepoMethod]} config
+           suggestions (concat ["this." "workspace."]
+                               (map (partial str "this.") data-attributes)
+                               (map (partial str "workspace.") workspace-attributes))]
        [:div {:style {:marginLeft 330}}
         (create-section-header "Method Configuration Name")
         (create-section
@@ -199,25 +203,20 @@
                                           :style {:width 500}}
                                          root-entity-types)
            [:div {:style {:padding "0.5em 0 1em 0"}} (:rootEntityType config)]))
-        [:datalist {:id "inputs-datalist"}
-         [:option {:value "this."}]
-         (map (fn [data-attr] [:option {:value (str "this." data-attr)}])
-              data-attributes)
-         [:option {:value "workspace."}]
-         (map (fn [ws-attr] [:option {:value (str "workspace." ws-attr)}])
-              workspace-attributes)]
         (create-section-header "Inputs")
         (input-output-list {:values (:inputs config)
                             :all-values (:inputs inputs-outputs)
                             :ref-prefix "in"
                             :invalid-values (:invalidInputs loaded-config)
-                            :editing? editing?})
+                            :editing? editing?
+                            :suggestions suggestions})
         (create-section-header "Outputs")
         (input-output-list {:values (:outputs config)
                             :all-values (:outputs inputs-outputs)
                             :ref-prefix "out"
                             :invalid-values (:invalidOutputs loaded-config)
-                            :editing? editing?})]))
+                            :editing? editing?
+                            :suggestions suggestions})]))
    :component-did-mount
    (fn [{:keys [state props refs this]}]
      (this :load-validated-method-config)
@@ -266,7 +265,7 @@
            deref-vals (fn [io-key ref-prefix]
                         (->> (io-key (:inputs-outputs @state))
                              (map :name)
-                             (map (juxt identity #(get-text refs (str ref-prefix "_" %))))
+                             (map (juxt identity #((@refs (str ref-prefix "_" %)) :get-text)))
                              (remove (comp empty? val))
                              (into {})))]
        (swap! state assoc :blocker "Updating...")
